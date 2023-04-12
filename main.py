@@ -9,7 +9,7 @@ FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file("config", None, "Training configuration.", lock_config=True)
 flags.DEFINE_string("workdir", None, "Work directory to store files.")
-flags.DEFINE_enum("mode", None, ['train', 'eval', 'tune'], "Running mode: train, eval or finetune.")
+flags.DEFINE_enum("mode", None, ['train', 'eval'], "Running mode: train or eval")
 flags.mark_flags_as_required(['mode', 'config'])
 
 
