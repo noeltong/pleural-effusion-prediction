@@ -1,5 +1,10 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from torchvision import transforms
+import os
+from sklearn.model_selection import train_test_split
+from torch.utils.data.distributed import DistributedSampler
 
 
 class data_prefetcher():
@@ -37,6 +42,7 @@ class data_prefetcher():
             #     self.next_input = self.next_input.half()
             # else:
             self.next_input = self.next_input.float()
+            self.next_target = self.next_target.float()
 
     def next(self):
         torch.cuda.current_stream().wait_stream(self.stream)
@@ -50,12 +56,71 @@ class data_prefetcher():
         return input, target
 
 
-class MyDataset(Dataset):
-    def __init__(self) -> None:
+class XRayDataset(Dataset):
+    def __init__(self, images, targets, mode='train') -> None:
         super().__init__()
+        self.images = images
+        self.targets = targets
+        self.aug_fn = transforms.Compose([
+            transforms.RandomCrop(45),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.GaussianBlur(5, sigma=(0.1, 0.5)),
+        ])
+
+        self.mode = mode
 
     def __getitem__(self, index):
-        pass
+        img = self.images[index].squeeze().unsqueeze(0)
+        # in shape of [B, 1, H, W]
+        target = self.targets[index].squeeze()
 
+        if self.mode == 'train':
+            img = self.aug_fn(img)
+
+        return img, target
     def __len__(self):
-        pass
+        return self.images.shape[0]
+
+
+def get_dataloader(config):
+    
+    data = np.load(os.path.join(config.data.path, 'images.npy'))
+    targets = np.load(os.path.join(config.data.path, 'targets.npy'))
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        data, targets, test_size=0.25, random_state=config.seed
+    )
+
+    X_train = torch.asarray(X_train).float()
+    X_test = torch.asarray(X_test).float()
+    y_train = torch.asarray(y_train).float()
+    y_test = torch.asarray(y_test).float()
+
+    train_dataset = XRayDataset(X_train, y_train, mode='train')
+    test_dataset = XRayDataset(X_test, y_test, mode='test')
+
+    train_sampler = DistributedSampler(train_dataset)
+    test_sampler = DistributedSampler(test_dataset)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config.training.batch_size,
+        sampler=train_sampler,
+        drop_last=True,
+        num_workers=config.data.num_workers,
+        pin_memory=True,
+        prefetch_factor=config.data.prefetch_factor
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=config.training.batch_size,
+        sampler=test_sampler,
+        drop_last=True,
+        num_workers=config.data.num_workers,
+        pin_memory=True,
+        prefetch_factor=config.data.prefetch_factor
+    )
+
+    return train_loader, test_loader, train_sampler, test_sampler
