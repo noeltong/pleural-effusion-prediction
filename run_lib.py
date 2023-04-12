@@ -3,16 +3,18 @@ import os
 import torch
 from torch import nn
 from torch.nn import functional as F
-from utils.data import MyDataset
 from utils.time import time_calculator
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 from utils.optim import get_optim
 from utils.utils import seed_everything
 from torch.utils.tensorboard import SummaryWriter
-from models.model import MyModel
+from models.resnet import ResNet, BasicBlock
 from models.ema import ExponentialMovingAverage
 from utils.utils import AverageMeter
+from utils.data import get_dataloader
+from utils.data import data_prefetcher as prefetcher
+from models.loss import CharbonnierLoss
 
 def train(config, workdir, train_dir='train'):
     """Runs the training pipeline.
@@ -77,7 +79,7 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Loading data...')
 
-    # train_loader, test_loader, train_sampler, test_sampler = pass
+    train_loader, test_loader, train_sampler, test_sampler = get_dataloader(config)
 
     dist.barrier()
 
@@ -91,11 +93,8 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Begin model initialization...')
 
-    model = MyModel()
-
-    # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    # If model has BNs...
-
+    model = ResNet(BasicBlock, config.model.depths, num_classes=1)
+    model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = model.cuda()
     model = DistributedDataParallel(model, device_ids=[rank])
     model_without_ddp = model.module
@@ -121,7 +120,8 @@ def train(config, workdir, train_dir='train'):
         logger.info('Handling optimizations...')
 
     optimizer, scheduler = get_optim(model, config)
-    criterion = nn.CosineSimilarity(dim=1).cuda()
+    criterion = nn.MSELoss().cuda()
+    # criterion = CharbonnierLoss().cuda()
 
     if rank == 0:
         logger.info('Completed.')
@@ -153,7 +153,7 @@ def train(config, workdir, train_dir='train'):
         # initialize data prefetcher
         # ----------------------------
 
-        train_prefetcher = prefetcher(train_loader, rank)
+        train_prefetcher = prefetcher(train_loader)
         x, y = train_prefetcher.next()
         i = 0
 
@@ -242,7 +242,7 @@ def train(config, workdir, train_dir='train'):
                 # initialize data prefetcher
                 # ----------------------------
 
-                test_prefetcher = prefetcher(test_loader, rank, mode='train')
+                test_prefetcher = prefetcher(test_loader)
                 x, y = test_prefetcher.next()
                 i = 0
 
@@ -253,7 +253,7 @@ def train(config, workdir, train_dir='train'):
 
                     eval_loss_epoch.update(loss.item(), x.shape[0])
                     logger.info(
-                        f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, Loss: {eval_loss_epoch.val:.6f}, Time: {time_logger.time_length()}, Device: {rank}')
+                        f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, Loss: {eval_loss_epoch.val:.6f}, Device: {rank}')
 
                     x, y = test_prefetcher.next()
                     i += 1
