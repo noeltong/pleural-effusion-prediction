@@ -8,13 +8,19 @@ Create a conda virtual environment by
 conda create -n venv python=3.10 --yes
 ```
 
-then activate it
+and activate it
 
 ```shell
 conda activate venv
 ```
 
-Install the packages via
+We suggest to install the PyTorch via conda first
+
+```shell
+conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+```
+
+then install the packages via
 
 ```shell
 pip install -r requirements.txt
