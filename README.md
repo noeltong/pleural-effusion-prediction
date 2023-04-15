@@ -31,6 +31,7 @@ pip install -r requirements.txt
 ```shell
 torchrun --nproc_per_node=[num of GPUs] main.py --mode train --config configs/default_config.py --workdir [name of work directory]
 ```
+
 Though the NN was implemented using `DistributedDataParallel` in PyTorch, it can be launched on a single GPU while enabling multi-GPU training.
 
 To run on specific GPUs, we can run
