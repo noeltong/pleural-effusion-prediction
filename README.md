@@ -2,6 +2,20 @@
 
 ## Prerequisites
 
+Create a conda virtual environment by
+
+```shell
+conda create -n venv python=3.10 --yes
+```
+
+then activate it
+
+```shell
+conda activate venv
+```
+
+Install the packages via
+
 ```shell
 pip install -r requirements.txt
 ```
@@ -9,5 +23,12 @@ pip install -r requirements.txt
 ## Train
 
 ```shell
-torchrun --nproc_per_node=4 main.py --mode train --config configs/default_config.py --workdir workdir
+torchrun --nproc_per_node=[num of GPUs] main.py --mode train --config configs/default_config.py --workdir [name of work directory]
+```
+Though the NN was implemented using `DistributedDataParallel` in PyTorch, it can be launched on a single GPU while enabling multi-GPU training.
+
+To run on specific GPUs, we can run
+
+```shell
+CUDA_VISIBLE_DIVICES=[GPUs] torchrun --nproc_per_node=[num of GPUs] main.py --mode train --config configs/default_config.py --workdir [name of work directory]
 ```
