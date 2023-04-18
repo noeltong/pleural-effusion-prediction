@@ -13,7 +13,6 @@ from models.ema import ExponentialMovingAverage
 from utils.utils import AverageMeter
 from utils.data import get_dataloader
 from utils.data import data_prefetcher as prefetcher
-from models.loss import CharbonnierLoss
 from models.fasternet import FasterNet
 
 
@@ -178,7 +177,7 @@ def train(config, workdir, train_dir='train'):
                 writer.add_scalar("Train/Loss", train_loss_epoch.val,
                                   epoch * iters_per_epoch + i)
                 writer.add_scalar("Train/LR", optimizer.state_dict()
-                                  ['param_groups'][0]['lr'].item(), epoch * iters_per_epoch + i)
+                                  ['param_groups'][0]['lr'], epoch * iters_per_epoch + i)
 
             logger.info(
                 f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_epoch}, Loss: {train_loss_epoch.val:.6f}, Device: {rank}')
