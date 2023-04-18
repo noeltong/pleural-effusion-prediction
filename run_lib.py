@@ -2,7 +2,6 @@ import logging
 import os
 import torch
 from torch import nn
-from torch.nn import functional as F
 from utils.time import time_calculator
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
@@ -15,6 +14,7 @@ from utils.utils import AverageMeter
 from utils.data import get_dataloader
 from utils.data import data_prefetcher as prefetcher
 from models.loss import CharbonnierLoss
+from models.fasternet import FasterNet
 
 def train(config, workdir, train_dir='train'):
     """Runs the training pipeline.
@@ -93,7 +93,11 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Begin model initialization...')
 
-    model = ResNet(BasicBlock, config.model.depths, num_classes=1)
+    if config.model.arch.lower() == 'resnet18':
+        model = ResNet(BasicBlock, config.model.depths, num_classes=1)
+    elif config.model.arch.lower() == 'fasternet':
+        model = FasterNet(in_chans=1, num_classes=1, depths=config.model.depths)
+
     model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = model.cuda()
     model = DistributedDataParallel(model, device_ids=[rank])
@@ -119,9 +123,7 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Handling optimizations...')
 
-    optimizer, scheduler = get_optim(model, config)
-    criterion = nn.MSELoss().cuda()
-    # criterion = CharbonnierLoss().cuda()
+    criterion, optimizer, scheduler = get_optim(model, config)
 
     if rank == 0:
         logger.info('Completed.')
@@ -222,7 +224,7 @@ def train(config, workdir, train_dir='train'):
             if rank == 0:
                 logger.info(
                     f'Saving best model state dict at epoch {epoch + 1}.')
-                torch.save(model_ema.state_dict() if config.model.ema else model_without_ddp.state_dict,
+                torch.save(model_ema.state_dict() if config.model.ema else model_without_ddp.state_dict(),
                            os.path.join(ckpt_dir, 'best.pth'))
 
         # Report loss on eval dataset periodically
@@ -236,7 +238,8 @@ def train(config, workdir, train_dir='train'):
             with torch.inference_mode():
                 eval_model.eval()
                 iters_per_eval = len(test_loader)
-                eval_loss_epoch = AverageMeter()
+                eval_mse_epoch = AverageMeter()
+                eval_mae_epoch = AverageMeter()
 
                 # ----------------------------
                 # initialize data prefetcher
@@ -249,21 +252,22 @@ def train(config, workdir, train_dir='train'):
                 while x is not None:
                     with torch.cuda.amp.autocast(enabled=True):
                         out = model(x)
-                        loss = criterion(out, y)
 
-                    eval_loss_epoch.update(loss.item(), x.shape[0])
+                    eval_mse_epoch.update(torch.abs(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
+                    eval_mae_epoch.update(torch.square(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
                     logger.info(
-                        f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, Loss: {eval_loss_epoch.val:.6f}, Device: {rank}')
+                        f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, MAE: {eval_mae_epoch.val:.6f}, MSE: {eval_mse_epoch.val:.6f}, Device: {rank}')
 
                     x, y = test_prefetcher.next()
                     i += 1
 
                 if rank == 0:
-                    writer.add_scalar('Eval loss', eval_loss_epoch.avg, epoch)
+                    writer.add_scalar('Eval/MAE', eval_mae_epoch.avg, epoch)
+                    writer.add_scalar('Eval/MSE', eval_mse_epoch.avg, epoch)
 
             if rank == 0:
                 logger.info(
-                    f'Epoch: {epoch + 1}/{config.training.num_epochs}, Avg eval loss: {eval_loss_epoch.avg:.4f}, Time: {time_logger.time_length()}')
+                    f'Epoch: {epoch + 1}/{config.training.num_epochs}, MAE: {eval_mae_epoch.avg:.6f}, MSE: {eval_mse_epoch.avg:.6f}, Time: {time_logger.time_length()}')
 
         dist.barrier()
 
