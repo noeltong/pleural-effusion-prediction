@@ -1,4 +1,6 @@
 import torch
+from torch import nn
+from models.loss import CharbonnierLoss
 
 
 def get_optim(model, config):
@@ -45,14 +47,12 @@ def get_optim(model, config):
             )
     else:
         raise ValueError(f'{config.optim.schedule} is not supported.')
-
-    # scheduler = torch.optim.lr_scheduler.CyclicLR(
-    #     optimizer,
-    #     base_lr=config.optim.min_lr,
-    #     max_lr=config.optim.initial_lr,
-    #     step_size_up=30,
-    #     step_size_down=30,
-    #     cycle_momentum=False
-    # )
     
-    return optimizer, scheduler
+    if config.optim.loss.lower() == 'charbonnierloss':
+        criterion = CharbonnierLoss().cuda()
+    elif config.optim.loss.lower() == 'mseloss':
+        criterion = nn.MSELoss().cuda()
+    else:
+        raise ValueError(f'{config.optim.loss} is not supported.')
+
+    return criterion, optimizer, scheduler
