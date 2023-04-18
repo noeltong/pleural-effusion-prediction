@@ -20,14 +20,12 @@ def get_config():
     # ----------------
 
     model = cfg.model = ConfigDict()
-    model.arch = 'resnet18'
-    # model.arch = 'fasternet'
+    # model.arch = 'resnet18'
+    model.arch = 'fasternet'
     model.clip_grad_norm = 1.
     model.ema = False
     model.ema_rate = 0.99
     model.ema_steps = 1
-    model.depths = [2, 2, 2, 2]     # for resnet-18
-    # model.depths=[1, 2, 8, 2]       # for fasternet
 
     # ----------------
     # Optimization
