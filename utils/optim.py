@@ -47,7 +47,7 @@ def get_optim(model, config):
             )
     else:
         raise ValueError(f'{config.optim.schedule} is not supported.')
-    
+
     if config.optim.loss.lower() == 'charbonnierloss':
         criterion = CharbonnierLoss().cuda()
     elif config.optim.loss.lower() == 'mseloss':

@@ -7,9 +7,11 @@ import warnings
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file("config", None, "Training configuration.", lock_config=True)
+config_flags.DEFINE_config_file(
+    "config", None, "Training configuration.", lock_config=True)
 flags.DEFINE_string("workdir", None, "Work directory to store files.")
-flags.DEFINE_enum("mode", None, ['train', 'eval'], "Running mode: train or eval")
+flags.DEFINE_enum("mode", None, ['train', 'eval'],
+                  "Running mode: train or eval")
 flags.mark_flags_as_required(['mode', 'config'])
 
 
@@ -21,7 +23,8 @@ def main(argv):
     if FLAGS.workdir is not None:
         work_dir = os.path.join('workspace', FLAGS.workdir)
     else:
-        time_str = datetime.datetime.strftime(datetime.datetime.now(), "%Y_%m_%d_%H_%M_%S")
+        time_str = datetime.datetime.strftime(
+            datetime.datetime.now(), "%Y_%m_%d_%H_%M_%S")
         work_dir = os.path.join('workspace', f'run_{time_str}')
 
     if FLAGS.mode == 'train':

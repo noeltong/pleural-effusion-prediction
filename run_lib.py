@@ -16,6 +16,7 @@ from utils.data import data_prefetcher as prefetcher
 from models.loss import CharbonnierLoss
 from models.fasternet import FasterNet
 
+
 def train(config, workdir, train_dir='train'):
     """Runs the training pipeline.
 
@@ -81,7 +82,8 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Loading data...')
 
-    train_loader, test_loader, train_sampler, test_sampler = get_dataloader(config)
+    train_loader, test_loader, train_sampler, test_sampler = get_dataloader(
+        config)
 
     dist.barrier()
 
@@ -175,7 +177,8 @@ def train(config, workdir, train_dir='train'):
             if rank == 0:
                 writer.add_scalar("Train/Loss", train_loss_epoch.val,
                                   epoch * iters_per_epoch + i)
-                writer.add_scalar("Train/LR", optimizer.state_dict()['param_groups'][0]['lr'].item(), epoch * iters_per_epoch + i)
+                writer.add_scalar("Train/LR", optimizer.state_dict()
+                                  ['param_groups'][0]['lr'].item(), epoch * iters_per_epoch + i)
 
             logger.info(
                 f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_epoch}, Loss: {train_loss_epoch.val:.6f}, Device: {rank}')
@@ -256,8 +259,10 @@ def train(config, workdir, train_dir='train'):
                     with torch.cuda.amp.autocast(enabled=True):
                         out = model(x)
 
-                    eval_mse_epoch.update(torch.abs(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
-                    eval_mae_epoch.update(torch.square(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
+                    eval_mse_epoch.update(
+                        torch.abs(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
+                    eval_mae_epoch.update(torch.square(
+                        out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
                     logger.info(
                         f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, MAE: {eval_mae_epoch.val:.6f}, MSE: {eval_mse_epoch.val:.6f}, Device: {rank}')
 

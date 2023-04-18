@@ -79,12 +79,13 @@ class XRayDataset(Dataset):
             img = self.aug_fn(img)
 
         return img, target
+
     def __len__(self):
         return self.images.shape[0]
 
 
 def get_dataloader(config):
-    
+
     data = np.load(os.path.join(config.data.path, 'images.npy'))
     targets = np.load(os.path.join(config.data.path, 'targets.npy'))
 
