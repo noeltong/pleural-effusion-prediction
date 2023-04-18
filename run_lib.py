@@ -72,6 +72,8 @@ def train(config, workdir, train_dir='train'):
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
+    logger.info(f'Training model with architecture {config.model.arch}.')
+
     # -------------------
     # Load data
     # -------------------
@@ -94,9 +96,9 @@ def train(config, workdir, train_dir='train'):
         logger.info('Begin model initialization...')
 
     if config.model.arch.lower() == 'resnet18':
-        model = ResNet(BasicBlock, config.model.depths, num_classes=1)
+        model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=1)
     elif config.model.arch.lower() == 'fasternet':
-        model = FasterNet(in_chans=1, num_classes=1, depths=config.model.depths)
+        model = FasterNet(in_chans=1, num_classes=1, depths=[1, 2, 8, 2])
 
     model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = model.cuda()
@@ -171,8 +173,9 @@ def train(config, workdir, train_dir='train'):
             train_loss_epoch.update(loss.item(), x.shape[0])
 
             if rank == 0:
-                writer.add_scalar("Loss", train_loss_epoch.val,
+                writer.add_scalar("Train/Loss", train_loss_epoch.val,
                                   epoch * iters_per_epoch + i)
+                writer.add_scalar("Train/LR", optimizer.state_dict()['param_groups'][0]['lr'].item(), epoch * iters_per_epoch + i)
 
             logger.info(
                 f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_epoch}, Loss: {train_loss_epoch.val:.6f}, Device: {rank}')
@@ -262,8 +265,8 @@ def train(config, workdir, train_dir='train'):
                     i += 1
 
                 if rank == 0:
-                    writer.add_scalar('Eval/MAE', eval_mae_epoch.avg, epoch)
-                    writer.add_scalar('Eval/MSE', eval_mse_epoch.avg, epoch)
+                    writer.add_scalar('Eval/MAE', eval_mae_epoch.val, epoch)
+                    writer.add_scalar('Eval/MSE', eval_mse_epoch.val, epoch)
 
             if rank == 0:
                 logger.info(
