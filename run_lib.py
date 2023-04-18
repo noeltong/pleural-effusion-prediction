@@ -269,8 +269,8 @@ def train(config, workdir, train_dir='train'):
                     i += 1
 
                 if rank == 0:
-                    writer.add_scalar('Eval/MAE', eval_mae_epoch.val, epoch)
-                    writer.add_scalar('Eval/MSE', eval_mse_epoch.val, epoch)
+                    writer.add_scalar('Eval/MAE', eval_mae_epoch.avg, epoch)
+                    writer.add_scalar('Eval/MSE', eval_mse_epoch.avg, epoch)
 
             if rank == 0:
                 logger.info(

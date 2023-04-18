@@ -10,7 +10,7 @@ def get_config():
     # ----------------
 
     training = cfg.training = ConfigDict()
-    training.num_epochs = 100
+    training.num_epochs = 50
     training.batch_size = 32
     training.save_ckpt_freq = 50
     training.eval_freq = 1
@@ -20,8 +20,8 @@ def get_config():
     # ----------------
 
     model = cfg.model = ConfigDict()
-    # model.arch = 'resnet18'
-    model.arch = 'fasternet'
+    model.arch = 'resnet18'
+    # model.arch = 'fasternet'
     model.clip_grad_norm = 1.
     model.ema = False
     model.ema_rate = 0.99
@@ -36,10 +36,10 @@ def get_config():
     optim.schedule = 'CosineAnnealingLR'
     optim.loss = 'CharbonnierLoss'
     optim.grad_clip = 1.
-    optim.initial_lr = 0.00005
+    optim.initial_lr = 0.00001
     optim.weight_decay = 0.0001
     optim.min_lr = 0.001 * optim.initial_lr
-    optim.warmup_epochs = 250
+    optim.warmup_epochs = None
 
     # ----------------
     # Data
