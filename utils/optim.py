@@ -1,7 +1,5 @@
 import torch
 from torch import nn
-from models.loss import CharbonnierLoss
-
 
 def get_optim(model, config):
     init_lr = config.optim.initial_lr * config.training.batch_size / 256
@@ -17,6 +15,12 @@ def get_optim(model, config):
             model.parameters(),
             lr=init_lr,
             weight_decay=config.optim.weight_decay
+        )
+    elif config.optim.optimizer.lower() == 'radam':
+        optimizer = torch.optim.RAdam(
+            model.parameters(),
+            lr=init_lr,
+            weight_decay=config.optim.weight_decay,
         )
     else:
         raise NotImplementedError(
@@ -48,11 +52,4 @@ def get_optim(model, config):
     else:
         raise ValueError(f'{config.optim.schedule} is not supported.')
 
-    if config.optim.loss.lower() == 'charbonnierloss':
-        criterion = CharbonnierLoss().cuda()
-    elif config.optim.loss.lower() == 'mseloss':
-        criterion = nn.MSELoss().cuda()
-    else:
-        raise ValueError(f'{config.optim.loss} is not supported.')
-
-    return criterion, optimizer, scheduler
+    return optimizer, scheduler
