@@ -4,3 +4,6 @@
 [submodule "Swin-Transformer"]
 	path = Swin-Transformer
 	url = https://github.com/microsoft/Swin-Transformer.git
+[submodule "swin_transformer"]
+	path = swin_transformer
+	url = https://github.com/microsoft/Swin-Transformer.git
