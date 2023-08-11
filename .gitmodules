@@ -1,3 +1,0 @@
-[submodule "simsiam"]
-	path = simsiam
-	url = https://github.com/facebookresearch/simsiam.git
