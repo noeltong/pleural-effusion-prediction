@@ -1,8 +1,0 @@
-absl==0.0
-absl_py==1.4.0
-ml_collections==0.1.1
-numpy==1.22.3
-scikit_learn==1.2.2
-timm==0.6.13
-torch==2.0.0
-torchvision==0.15.0
