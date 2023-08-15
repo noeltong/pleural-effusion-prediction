@@ -43,9 +43,10 @@ def get_optim(model, config):
     init_lr = config.optim.initial_lr * config.training.batch_size / 256
 
     if config.optim.optimizer.lower() == 'lars':
-        optimizer = LARS(model.parameters(),
-                         init_lr,
-                         weight_decay=config.optim.weight_decay
+        optimizer = LARS(
+            model.parameters(),
+            init_lr,
+            weight_decay=config.optim.weight_decay
         )
     elif config.optim.optimizer.lower() == 'radam':
         optimizer = torch.optim.RAdam(

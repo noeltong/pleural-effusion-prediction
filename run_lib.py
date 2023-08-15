@@ -177,6 +177,8 @@ def train(config, workdir, train_dir='train'):
 
         # while x is not None:
         for i, (x1, x2) in enumerate(train_loader):
+            x1 = x1.cuda(non_blocking=True).float()
+            x2 = x2.cuda(non_blocking=True).float()
             with torch.cuda.amp.autocast(enabled=True):
                 loss = model(x1, x2, get_moco_m(epoch))
 
@@ -232,14 +234,14 @@ def train(config, workdir, train_dir='train'):
                 torch.save(snapshot, os.path.join(
                     ckpt_dir, f'{epoch+1}_loss_{train_loss_epoch.avg:.2f}.pth'))
 
-        is_best = train_loss_epoch.avg < best_loss
-        if is_best:
-            best_loss = train_loss_epoch.avg
-            if rank == 0:
-                logger.info(
-                    f'Saving best model state dict at epoch {epoch + 1}.')
-                torch.save(model_ema.state_dict() if config.model.ema else model_without_ddp.state_dict(),
-                           os.path.join(ckpt_dir, 'best.pth'))
+        # is_best = train_loss_epoch.avg < best_loss
+        # if is_best:
+        #     best_loss = train_loss_epoch.avg
+        #     if rank == 0:
+        #         logger.info(
+        #             f'Saving best model state dict at epoch {epoch + 1}.')
+        #         torch.save(model_ema.state_dict() if config.model.ema else model_without_ddp.state_dict(),
+        #                    os.path.join(ckpt_dir, 'best.pth'))
 
         dist.barrier()
 

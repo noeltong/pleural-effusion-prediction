@@ -34,11 +34,11 @@ def get_config():
     # ----------------
 
     optim = cfg.optim
-    optim.optimizer = 'RAdam'
+    optim.optimizer = 'LARS'
     optim.schedule = 'CosineAnnealingLR'
     optim.loss = 'CharbonnierLoss'
     optim.grad_clip = 1.
-    optim.initial_lr = 0.00001
+    optim.initial_lr = 0.1
     optim.weight_decay = 0.0001
     optim.min_lr = 0.001 * optim.initial_lr
     optim.warmup_epochs = None
@@ -50,7 +50,7 @@ def get_config():
     data = cfg.data
     data.path = 'data'
     data.num_workers = 2
-    data.prefetch_factor = 2
+    data.prefetch_factor = 1
 
     cfg.seed = 42
     cfg.distributed = True

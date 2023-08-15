@@ -94,7 +94,7 @@ class PretrainDataset(Dataset):
 
         self.aug_1 = T.Compose([
             T.RandomResizedCrop(224, scale=(0.08, 1.)),
-            T.RandomApply(T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), p=0.5),
+            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5),
             T.RandomSolarize(threshold=192.0, p=0.25),
             T.RandomHorizontalFlip(),
             T.ToTensor(),
@@ -102,19 +102,19 @@ class PretrainDataset(Dataset):
 
         self.aug_2 = T.Compose([
             T.RandomResizedCrop(224, scale=(0.08, 1.)),
-            T.RandomApply(T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), p=0.5),
+            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5),
             T.RandomSolarize(threshold=192.0, p=0.25),
             T.RandomHorizontalFlip(),
             T.ToTensor(),
         ])
 
     def __getitem__(self, index):
-        img = Image.open(self.all_path[index])
+        img = Image.open(self.all_path[index]).convert('L')
 
         img_1 = self.aug_1(img)
         img_2 = self.aug_2(img)
 
-        return img_1[None, ...], img_2[None, ...]
+        return img_1, img_2
     
     def __len__(self):
         return len(self.all_path)
