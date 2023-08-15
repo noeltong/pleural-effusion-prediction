@@ -1,4 +1,3 @@
-from ml_collections.config_dict import ConfigDict
 from configs.default_config import get_config as get_default_config
 
 
@@ -11,7 +10,7 @@ def get_config():
     # ----------------
 
     training = cfg.training
-    training.num_epochs = 50
+    training.num_epochs = 300
     training.batch_size = 32
     training.save_ckpt_freq = 50
     training.eval_freq = 1
@@ -21,12 +20,14 @@ def get_config():
     # ----------------
 
     model = cfg.model
-    model.arch = 'resnet18'
-    # model.arch = 'fasternet'
     model.clip_grad_norm = 1.
-    model.ema = False
-    model.ema_rate = 0.99
+    model.ema = True
+    model.ema_rate = 0.999
     model.ema_steps = 1
+    model.moco_dim = 256
+    model.moco_mlp_dim = 4096
+    model.moco_t = 1.0
+    model.moco_m = 0.99
 
     # ----------------
     # Optimization
