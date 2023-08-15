@@ -8,12 +8,13 @@ import torch.distributed as dist
 from utils.optim import get_optim
 from utils.utils import seed_everything
 from torch.utils.tensorboard import SummaryWriter
-from models.resnet import ResNet, BasicBlock
 from models.ema import ExponentialMovingAverage
 from utils.utils import AverageMeter
-from utils.data import get_dataloader
-from utils.data import data_prefetcher as prefetcher
-from models.fasternet import FasterNet
+from utils.data import PretrainDataset, get_tune_dataloader
+from models.builder import MoCo_ViT
+import functools
+from models import vits
+import math
 
 
 def train(config, workdir, train_dir='train'):
@@ -72,8 +73,6 @@ def train(config, workdir, train_dir='train'):
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    logger.info(f'Training model with architecture {config.model.arch}.')
-
     # -------------------
     # Load data
     # -------------------
@@ -81,8 +80,17 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Loading data...')
 
-    train_loader, test_loader, train_sampler, test_sampler = get_dataloader(
-        config)
+    train_set = PretrainDataset()
+    train_sampler = torch.utils.data.DistributedSampler(train_set)
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=config.training.batch_size,
+        sampler=train_sampler,
+        drop_last=True,
+        num_workers=config.data.num_workers,
+        pin_memory=True,
+        prefetch_factor=config.data.prefetch_factor
+    )
 
     dist.barrier()
 
@@ -96,10 +104,11 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Begin model initialization...')
 
-    if config.model.arch.lower() == 'resnet18':
-        model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=1)
-    elif config.model.arch.lower() == 'fasternet':
-        model = FasterNet(in_chans=1, num_classes=1, depths=[1, 2, 8, 2])
+    model = MoCo_ViT(
+        functools.partial(vits.vit_base, stop_grad_conv1='store_true'),
+        dim=config.model.moco_dim, mlp_dim=config.model.moco_mlp_dim,
+        T=config.model.moco_t
+    )
 
     model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = model.cuda()
@@ -126,7 +135,7 @@ def train(config, workdir, train_dir='train'):
     if rank == 0:
         logger.info('Handling optimizations...')
 
-    criterion, optimizer, scheduler = get_optim(model, config)
+    optimizer, scheduler = get_optim(model, config)
 
     if rank == 0:
         logger.info('Completed.')
@@ -141,37 +150,37 @@ def train(config, workdir, train_dir='train'):
 
     best_loss = 999999999.
     iters_per_epoch = len(train_loader)
+    get_moco_m = lambda epoch: 1.0 - 0.5 * (1. + math.cos(math.pi * epoch / config.training.num_epochs)) * (1 - config.model.moco_m)
 
     dist.barrier()
     torch.cuda.empty_cache()
 
     for epoch in range(config.training.num_epochs):
         train_sampler.set_epoch(epoch)
-        test_sampler.set_epoch(epoch)
         model.train()
         train_loss_epoch = AverageMeter()
 
         if rank == 0:
             logger.info(f'Start training epoch {epoch + 1}.')
 
-        # ----------------------------
-        # initialize data prefetcher
-        # ----------------------------
+        # # ----------------------------
+        # # initialize data prefetcher
+        # # ----------------------------
 
-        train_prefetcher = prefetcher(train_loader)
-        x, y = train_prefetcher.next()
-        i = 0
+        # train_prefetcher = prefetcher(train_loader)
+        # x, y = train_prefetcher.next()
+        # i = 0
 
         # ----------------------------
         # run the training process
         # ----------------------------
 
-        while x is not None:
+        # while x is not None:
+        for i, (x1, x2) in enumerate(train_loader):
             with torch.cuda.amp.autocast(enabled=True):
-                out = model(x)
-                loss = criterion(out, y)
+                loss = model(x1, x2, get_moco_m(epoch))
 
-            train_loss_epoch.update(loss.item(), x.shape[0])
+            train_loss_epoch.update(loss.item(), x1.shape[0])
 
             if rank == 0:
                 writer.add_scalar("Train/Loss", train_loss_epoch.val,
@@ -196,8 +205,8 @@ def train(config, workdir, train_dir='train'):
             if config.model.ema and i % config.model.ema_steps == 0:
                 model_ema.update_parameters(model)
 
-            x, y = train_prefetcher.next()
-            i += 1
+            # x, y = train_prefetcher.next()
+            # i += 1
 
         scheduler.step()
 
@@ -231,50 +240,6 @@ def train(config, workdir, train_dir='train'):
                     f'Saving best model state dict at epoch {epoch + 1}.')
                 torch.save(model_ema.state_dict() if config.model.ema else model_without_ddp.state_dict(),
                            os.path.join(ckpt_dir, 'best.pth'))
-
-        # Report loss on eval dataset periodically
-
-        if (epoch + 1) % config.training.eval_freq == 0:
-            if rank == 0:
-                logger.info(f'Start evaluate at epoch {epoch + 1}.')
-
-            eval_model = model_ema if config.model.ema else model_without_ddp
-            # eval_model = model_without_ddp
-            with torch.inference_mode():
-                eval_model.eval()
-                iters_per_eval = len(test_loader)
-                eval_mse_epoch = AverageMeter()
-                eval_mae_epoch = AverageMeter()
-
-                # ----------------------------
-                # initialize data prefetcher
-                # ----------------------------
-
-                test_prefetcher = prefetcher(test_loader)
-                x, y = test_prefetcher.next()
-                i = 0
-
-                while x is not None:
-                    with torch.cuda.amp.autocast(enabled=True):
-                        out = model(x)
-
-                    eval_mse_epoch.update(
-                        torch.abs(out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
-                    eval_mae_epoch.update(torch.square(
-                        out.detach().squeeze() - y.detach().squeeze()).mean().cpu().item())
-                    logger.info(
-                        f'Epoch: {epoch + 1}/{config.training.num_epochs}, Iter: {i + 1}/{iters_per_eval}, MAE: {eval_mae_epoch.val:.6f}, MSE: {eval_mse_epoch.val:.6f}, Device: {rank}')
-
-                    x, y = test_prefetcher.next()
-                    i += 1
-
-                if rank == 0:
-                    writer.add_scalar('Eval/MAE', eval_mae_epoch.avg, epoch)
-                    writer.add_scalar('Eval/MSE', eval_mse_epoch.avg, epoch)
-
-            if rank == 0:
-                logger.info(
-                    f'Epoch: {epoch + 1}/{config.training.num_epochs}, MAE: {eval_mae_epoch.avg:.6f}, MSE: {eval_mse_epoch.avg:.6f}, Time: {time_logger.time_length()}')
 
         dist.barrier()
 

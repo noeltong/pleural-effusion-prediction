@@ -1,10 +1,12 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
-from torchvision import transforms
+from torchvision import transforms as T
 import os
 from sklearn.model_selection import train_test_split
 from torch.utils.data.distributed import DistributedSampler
+import pathlib
+from PIL import Image
 
 
 class data_prefetcher():
@@ -61,11 +63,11 @@ class XRayDataset(Dataset):
         super().__init__()
         self.images = images
         self.targets = targets
-        self.aug_fn = transforms.Compose([
-            transforms.RandomCrop(45),
-            transforms.RandomVerticalFlip(p=0.5),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.GaussianBlur(5, sigma=(0.1, 0.5)),
+        self.aug_fn = T.Compose([
+            T.RandomCrop(45),
+            T.RandomVerticalFlip(p=0.5),
+            T.RandomHorizontalFlip(p=0.5),
+            T.GaussianBlur(5, sigma=(0.1, 0.5)),
         ])
 
         self.mode = mode
@@ -84,7 +86,41 @@ class XRayDataset(Dataset):
         return self.images.shape[0]
 
 
-def get_dataloader(config):
+class PretrainDataset(Dataset):
+    def __init__(self) -> None:
+        super().__init__()
+        data_path = pathlib.Path('/storage/data/tongshq/dataset/ChestXRay-NIHCC')
+        self.all_path = list(data_path.rglob('*.png'))
+
+        self.aug_1 = T.Compose([
+            T.RandomResizedCrop(224, scale=(0.08, 1.)),
+            T.RandomApply(T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), p=0.5),
+            T.RandomSolarize(threshold=192.0, p=0.25),
+            T.RandomHorizontalFlip(),
+            T.ToTensor(),
+        ])
+
+        self.aug_2 = T.Compose([
+            T.RandomResizedCrop(224, scale=(0.08, 1.)),
+            T.RandomApply(T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), p=0.5),
+            T.RandomSolarize(threshold=192.0, p=0.25),
+            T.RandomHorizontalFlip(),
+            T.ToTensor(),
+        ])
+
+    def __getitem__(self, index):
+        img = Image.open(self.all_path[index])
+
+        img_1 = self.aug_1(img)
+        img_2 = self.aug_2(img)
+
+        return img_1[None, ...], img_2[None, ...]
+    
+    def __len__(self):
+        return len(self.all_path)
+
+
+def get_tune_dataloader(config):
 
     data = np.load(os.path.join(config.data.path, 'images.npy'))
     targets = np.load(os.path.join(config.data.path, 'targets.npy'))
