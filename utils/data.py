@@ -93,18 +93,16 @@ class PretrainDataset(Dataset):
         self.all_path = list(data_path.rglob('*.png'))
 
         self.aug_1 = T.Compose([
-            T.RandomResizedCrop(224, scale=(0.08, 1.)),
-            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5),
+            T.RandomResizedCrop(224, scale=(0.75, 1.)),
+            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 1))], p=0.5),
             T.RandomSolarize(threshold=192.0, p=0.25),
-            T.RandomHorizontalFlip(),
             T.ToTensor(),
         ])
 
         self.aug_2 = T.Compose([
-            T.RandomResizedCrop(224, scale=(0.08, 1.)),
-            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5),
+            T.RandomResizedCrop(224, scale=(0.75, 1.)),
+            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 1))], p=0.5),
             T.RandomSolarize(threshold=192.0, p=0.25),
-            T.RandomHorizontalFlip(),
             T.ToTensor(),
         ])
 
