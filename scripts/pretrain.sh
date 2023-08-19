@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=edm-train
+#SBATCH --job-name=pretrain
 #SBATCH --partition=normal
 #SBATCH -N 1
 #SBATCH -n 4
