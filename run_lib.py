@@ -145,8 +145,10 @@ def train(config, workdir, train_dir='train'):
     # -------------------
 
     scaler = torch.cuda.amp.GradScaler()
-    writer = SummaryWriter(log_dir=log_dir)
     time_logger = time_calculator()
+
+    if rank == 0:
+        writer = SummaryWriter(log_dir=log_dir)
 
     best_loss = 999999999.
     iters_per_epoch = len(train_loader)
