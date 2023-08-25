@@ -6,7 +6,7 @@ from utils.time import time_calculator
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 from utils.optim import get_optim
-from utils.utils import seed_everything
+from utils.utils import set_seed
 from torch.utils.tensorboard import SummaryWriter
 from models.ema import ExponentialMovingAverage
 from utils.utils import AverageMeter
@@ -42,7 +42,7 @@ def train(config, workdir, train_dir='train'):
     # seeds
     # -------------------
 
-    seed_everything(config.seed + rank)
+    set_seed(config.seed + rank)
 
     if config.use_deterministic_algorithms:
         os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
