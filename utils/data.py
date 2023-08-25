@@ -6,7 +6,8 @@ import os
 from sklearn.model_selection import train_test_split
 from torch.utils.data.distributed import DistributedSampler
 import pathlib
-from PIL import Image
+# from PIL import Image
+import cv2
 
 
 class data_prefetcher():
@@ -107,7 +108,8 @@ class PretrainDataset(Dataset):
         ])
 
     def __getitem__(self, index):
-        img = Image.open(self.all_path[index]).convert('L')
+        img = cv2.imread(str(self.all_path[index]), 0)[None, ...]
+        img = torch.from_numpy(img)
 
         img_1 = self.aug_1(img)
         img_2 = self.aug_2(img)
