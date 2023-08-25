@@ -11,7 +11,7 @@ def get_config():
 
     training = cfg.training
     training.num_epochs = 300
-    training.batch_size = 32
+    training.batch_size = 64
     training.save_ckpt_freq = 50
     training.eval_freq = 1
 
@@ -37,7 +37,7 @@ def get_config():
     optim.optimizer = 'LARS'
     optim.schedule = 'CosineAnnealingLR'
     optim.grad_clip = None
-    optim.initial_lr = 1.5e-3
+    optim.initial_lr = 2e-3
     optim.weight_decay = 0.0001
     optim.min_lr = 0.001 * optim.initial_lr
     optim.warmup_epochs = 10
